@@ -1,0 +1,660 @@
+pico-8 cartridge // http://www.pico-8.com
+version 43
+__lua__
+--maze-sprites
+--by morarupasukaru
+--last update: 29.04.2026
+--
+--migration of the 
+--javascript sourcecode
+--by zooperdan to pico-8 
+--
+--links to zooperdan work:
+--https://dungeoncrawlers.org/tools/dungeonrenderer/
+--
+--dungeon generated with:
+--https://dungeoncrawlers.org/tools/atlas_generator/
+--
+--sprites took from:
+--https://opengameart.org/content/dungeon-crawl-32x32-tiles
+
+function _init()
+	init_map()
+	init_player()
+	init_atlas()
+	init_dungeon()
+	
+	-- 64x64 pixels mode
+	poke(0x5f2c,3)
+	
+end
+
+function _update()
+	update_player()
+	update_map()
+end
+
+function _draw()
+	cls(0)
+	draw_dungeon()
+	draw_map()
+end
+-->8
+-- map
+function init_map()
+	mapdata = {
+		{1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+		{1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1},
+		{1,0,1,1,1,1,0,1,0,0,0,1,0,1,1,1},
+		{1,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1},
+		{1,0,0,0,1,0,1,0,1,0,1,0,1,1,0,1},
+		{1,0,1,0,1,0,1,1,1,0,1,0,1,0,0,1},
+		{1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+		{1,0,1,0,1,0,0,0,1,1,1,0,0,0,0,1},
+		{1,0,0,1,1,0,0,0,1,0,0,0,0,1,0,1},
+		{1,0,0,0,0,0,1,0,0,1,0,0,1,1,0,1},
+		{1,1,0,1,1,0,1,0,1,1,0,0,0,0,0,1},
+		{1,0,0,0,1,0,0,0,0,0,0,1,1,0,1,1},
+		{1,0,1,0,1,0,0,1,0,0,0,1,1,0,0,1},
+		{1,1,1,0,0,0,1,1,1,0,1,1,0,0,0,1},
+		{1,0,0,0,1,0,0,1,0,0,0,0,0,1,0,1},
+		{1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
+	}
+	
+	show_map=false
+ slow_pulse=pulse:new(0.1)
+ delay_show_hide_txt=120
+ counter_show_hide_txt=delay_show_hide_txt
+end
+
+function map_width()
+	if map_height() == 0 then
+		return 0
+	else
+		return #mapdata[1]
+	end
+end
+
+function map_height()
+	return #mapdata
+end
+
+function update_map()
+	if btnp(❎) then
+		show_map=not show_map
+		counter_show_hide_txt=delay_show_hide_txt
+	end
+	counter_show_hide_txt-=1
+ slow_pulse:update()
+end
+
+function draw_map()
+	print_show_hide_map_action()
+	if not show_map then
+		return
+	end
+	
+ local ss=3 --sprite size
+	for y=1,map_height() do
+		for x=1,map_width() do
+		 local x1=(x-1)*ss 
+		 local y1=(y-1)*ss
+		 local x2=x*ss-1 
+		 local y2=y*ss-1
+		 
+		 if mapdata[y][x]==1 then
+		 	draw_map_wall(x1,y1,x2,y2,2)	
+		 else
+		 	draw_map_cell(x1,y1,x2,y2,2)
+		 end
+		 
+		 if x==player.x 
+		 		and y==player.y 
+		 		and slow_pulse:bool() then
+		  draw_map_player(x1,y1,x2,y2)
+		 end
+		end
+	end
+end
+
+function print_show_hide_map_action()
+	if slow_pulse:bool() and counter_show_hide_txt>0 then
+		local txt
+		if not show_map then
+			txt="❎ to show map"
+		else
+			txt="❎ to hide map"
+		end
+	 print_center(txt,55)
+	end
+end
+
+function draw_map_wall(x1,y1,x2,y2)
+	rectfill(x1,y1,x2,y2,4)
+end
+
+function draw_map_cell(x1,y1,x2,y2)
+	rectfill(x1,y1,x2,y2,15)
+end
+
+function draw_map_player(x1,y1,x2,y2)
+	local col=0
+	if player.dir==1 then
+	 -- 1=north
+		pset(x1,y2,col)
+		pset(x2,y2,col)
+		pset(x1+1,y1+1,col)
+	elseif player.dir==2 then
+	 -- 2=east
+		pset(x1,y1,col)
+		pset(x1,y2,col)
+		pset(x1+1,y1+1,col)
+	elseif player.dir==3 then
+		-- 3=south
+		pset(x1,y1,col)
+		pset(x2,y1,col)
+		pset(x1+1,y1+1,col)
+	elseif player.dir==4 then
+	 -- 4=west
+		pset(x2,y1,col)
+		pset(x2,y2,col)
+		pset(x1+1,y1+1,col)
+	end
+end
+-->8
+-- player
+function init_player()
+	player={
+		x=2,  -- x=1 to map_width()
+		y=3,  -- y=1 to map_height()
+		dir=1 -- 1=north,2=east,3=south,4=west
+	}
+	
+	directions={
+  {x=0, y=-1}, -- 1=north
+  {x=1, y=0},  -- 2=east
+  {x=0, y=1},  -- 3=south
+  {x=-1, y=0}  -- 4=west
+ }
+end
+
+function update_player()
+	if btnp(⬅️) then
+		turn_left()
+	elseif btnp(➡️) then
+		turn_right()
+	elseif btnp(⬆️) then
+		move_forward()
+	elseif btnp(⬇️) then
+		move_backward()
+	end
+end
+
+function turn_left()
+	player.dir-=1
+ if player.dir < 1 then 
+ 	player.dir = 4
+ end
+end
+
+function turn_right()
+	player.dir+=1
+ if player.dir > 4 then 
+ 	player.dir = 1
+ end
+end
+
+function move_forward()
+ move_player()
+end
+
+function move_backward()
+ move_player(true)
+end
+
+function move_player(backward)
+	local vector=directions[player.dir]
+	local vx=vector.x
+	local vy=vector.y
+	if backward then
+	 vx=-vx
+	 vy=-vy
+	end
+
+ if not can_move(player.x+vx,player.y+vy) then
+		return
+	end
+
+ player.x+=vx
+ player.y+=vy
+end
+
+
+function can_move(x,y)
+ if x<1 or y<1 or x>map_width() or y>map_height() then
+ 	return false
+ else
+		return mapdata[y][x]==0
+	end
+end
+-->8
+-- atlas
+
+function init_atlas()
+	-- atlas generated with https://dungeoncrawlers.org/tools/atlas_generator/
+	-- json converted to lua table with ChatGPT
+	--
+	-- setting used in atlas generator:
+	-- {"viewportWidth":64,"viewportHeight":64,"dungeonDepth":3,"dungeonWidth":3,"cameraOffsetX":0.5,"cameraOffsetY":0.005,"cameraOffsetZ":0.026,"cameraTiltAngle":-0.15,"cameraFOV":60,"ceilingOffsetY":-0.225,"tileWidth":0,"cameraShiftZ":-0.115,"squareDepthScale":1,"tilePadding":2,"useFog":false,"fogStart":0,"fogEnd":3.5,"fogColor":{"r":0,"g":0,"b":0},"wireColor":{"r":255,"g":255,"b":255},"textureFiltering":false}
+	atlas = {
+	    version = "0.0.1",
+	    generated = "2026-04-22",
+	    resolution = {
+	        width = 64,
+	        height = 64
+	    },
+	    depth = 3,
+	    width = 3,
+	    layers = {
+	        {
+	            on = true,
+	            index = 0,
+	            name = "grey stone floor",
+	            type = "floor",
+	            id = 1,
+	            scale = { x = 1, y = 1 },
+	            offset = { x = 0, y = 0 },
+	            tiles = {
+	                { type="floor", flipped=false, tile={x=0,z=0}, screen={x=0,y=50}, coords={x=16,y=0,w=64,h=14,fullwidth=64} },
+	                { type="floor", flipped=false, tile={x=0,z=-1}, screen={x=7,y=37}, coords={x=16,y=16,w=50,h=13,fullwidth=50} },
+	                { type="floor", flipped=false, tile={x=0,z=-2}, screen={x=19,y=33}, coords={x=0,y=32,w=26,h=4,fullwidth=26} },
+	                { type="floor", flipped=false, tile={x=0,z=-3}, screen={x=23,y=31}, coords={x=28,y=32,w=18,h=2,fullwidth=18} },
+	                { type="floor", flipped=false, tile={x=-1,z=0}, screen={x=0,y=50}, coords={x=8,y=0,w=6,h=6,fullwidth=6} },
+	                { type="floor", flipped=true,  tile={x=1,z=0},  screen={x=64,y=50}, coords={x=8,y=0,w=6,h=6,fullwidth=2} },
+	                { type="floor", flipped=false, tile={x=-1,z=-1}, screen={x=0,y=37}, coords={x=0,y=38,w=18,h=13,fullwidth=18} },
+	                { type="floor", flipped=true,  tile={x=1,z=-1},  screen={x=64,y=37}, coords={x=0,y=38,w=18,h=13,fullwidth=2} },
+	                { type="floor", flipped=false, tile={x=-1,z=-2}, screen={x=0,y=33}, coords={x=48,y=32,w=22,h=4,fullwidth=22} },
+	                { type="floor", flipped=true,  tile={x=1,z=-2},  screen={x=64,y=33}, coords={x=48,y=32,w=22,h=4,fullwidth=2} },
+	                { type="floor", flipped=false, tile={x=-1,z=-3}, screen={x=6,y=31}, coords={x=20,y=38,w=18,h=2,fullwidth=18} },
+	                { type="floor", flipped=true,  tile={x=1,z=-3},  screen={x=58,y=31}, coords={x=20,y=38,w=18,h=2,fullwidth=2} },
+	                { type="floor", flipped=false, tile={x=-2,z=-2}, screen={x=0,y=33}, coords={x=8,y=8,w=3,h=1,fullwidth=3} },
+	                { type="floor", flipped=true,  tile={x=2,z=-2},  screen={x=64,y=33}, coords={x=8,y=8,w=3,h=1,fullwidth=2} },
+	                { type="floor", flipped=false, tile={x=-2,z=-3}, screen={x=0,y=31}, coords={x=0,y=16,w=9,h=2,fullwidth=9} },
+	                { type="floor", flipped=true,  tile={x=2,z=-3},  screen={x=64,y=31}, coords={x=0,y=16,w=9,h=2,fullwidth=2} },
+	            }
+	        },
+	        {
+	            on = true,
+	            index = 1,
+	            name = "grey stone ceiling",
+	            type = "ceiling",
+	            id = 2,
+	            scale = { x = 1, y = 1 },
+	            offset = { x = 0, y = 0 },
+	            tiles = {
+	                { type="ceiling", flipped=false, tile={x=0,z=0}, screen={x=0,y=0}, coords={x=0,y=53,w=64,h=10,fullwidth=64} },
+	                { type="ceiling", flipped=false, tile={x=0,z=-1}, screen={x=8,y=10}, coords={x=0,y=65,w=48,h=6,fullwidth=48} },
+	                { type="ceiling", flipped=false, tile={x=0,z=-2}, screen={x=19,y=16}, coords={x=40,y=38,w=26,h=3,fullwidth=26} },
+	                { type="ceiling", flipped=false, tile={x=0,z=-3}, screen={x=24,y=19}, coords={x=20,y=42,w=16,h=1,fullwidth=16} },
+	                { type="ceiling", flipped=false, tile={x=-1,z=0}, screen={x=0,y=6}, coords={x=0,y=20,w=6,h=4,fullwidth=6} },
+	                { type="ceiling", flipped=true,  tile={x=1,z=0},  screen={x=64,y=6}, coords={x=0,y=20,w=6,h=4,fullwidth=2} },
+	                { type="ceiling", flipped=false, tile={x=-1,z=-1}, screen={x=0,y=10}, coords={x=20,y=45,w=17,h=6,fullwidth=17} },
+	                { type="ceiling", flipped=true,  tile={x=1,z=-1},  screen={x=64,y=10}, coords={x=20,y=45,w=17,h=6,fullwidth=2} },
+	                { type="ceiling", flipped=false, tile={x=-1,z=-2}, screen={x=0,y=16}, coords={x=40,y=43,w=23,h=3,fullwidth=23} },
+	                { type="ceiling", flipped=true,  tile={x=1,z=-2},  screen={x=64,y=16}, coords={x=40,y=43,w=23,h=3,fullwidth=2} },
+	                { type="ceiling", flipped=false, tile={x=-1,z=-3}, screen={x=9,y=19}, coords={x=40,y=48,w=15,h=1,fullwidth=15} },
+	                { type="ceiling", flipped=true,  tile={x=1,z=-3},  screen={x=55,y=19}, coords={x=40,y=48,w=15,h=1,fullwidth=2} },
+	                { type="ceiling", flipped=false, tile={x=-2,z=-2}, screen={x=0,y=18}, coords={x=8,y=11,w=4,h=1,fullwidth=4} },
+	                { type="ceiling", flipped=true,  tile={x=2,z=-2},  screen={x=64,y=18}, coords={x=8,y=11,w=4,h=1,fullwidth=2} },
+	                { type="ceiling", flipped=false, tile={x=-2,z=-3}, screen={x=0,y=19}, coords={x=68,y=16,w=9,h=1,fullwidth=9} },
+	                { type="ceiling", flipped=true,  tile={x=2,z=-3},  screen={x=64,y=19}, coords={x=68,y=16,w=9,h=1,fullwidth=2} },
+	            }
+	        },
+	        {
+	            on = true,
+	            index = 2,
+	            name = "grey stone walls",
+	            type = "walls",
+	            id = 3,
+	            scale = { x = 1, y = 1 },
+	            offset = { x = 0, y = 0 },
+	            tiles = {
+	                { type="side", flipped=false, tile={x=-2,z=-3}, screen={x=5,y=19}, coords={x=0,y=0,w=6,h=14,fullwidth=6} },
+	                { type="side", flipped=true,  tile={x=2,z=-3},  screen={x=59,y=19}, coords={x=0,y=0,w=6,h=14,fullwidth=2} },
+	                { type="front", flipped=false, tile={x=0,z=-1}, screen={x=7,y=10}, coords={x=0,y=73,w=50,h=40,fullwidth=50} },
+	                { type="front", flipped=false, tile={x=0,z=-2}, screen={x=19,y=16}, coords={x=52,y=73,w=26,h=21,fullwidth=26} },
+	                { type="front", flipped=false, tile={x=0,z=-3}, screen={x=23,y=19}, coords={x=52,y=96,w=18,h=14,fullwidth=18} },
+	                { type="side", flipped=false, tile={x=-1,z=0}, screen={x=0,y=6}, coords={x=82,y=0,w=7,h=50,fullwidth=7} },
+	                { type="side", flipped=true,  tile={x=1,z=0},  screen={x=64,y=6}, coords={x=82,y=0,w=7,h=50,fullwidth=2} },
+	                { type="side", flipped=false, tile={x=-1,z=-1}, screen={x=7,y=10}, coords={x=91,y=0,w=12,h=39,fullwidth=12} },
+	                { type="side", flipped=true,  tile={x=1,z=-1},  screen={x=57,y=10}, coords={x=91,y=0,w=12,h=39,fullwidth=2} },
+	                { type="side", flipped=false, tile={x=-1,z=-2}, screen={x=19,y=17}, coords={x=82,y=52,w=4,h=19,fullwidth=4} },
+	                { type="side", flipped=true,  tile={x=1,z=-2},  screen={x=45,y=17}, coords={x=82,y=52,w=4,h=19,fullwidth=2} },
+	                { type="side", flipped=false, tile={x=-1,z=-3}, screen={x=23,y=19}, coords={x=68,y=38,w=2,h=13,fullwidth=2} },
+	                { type="side", flipped=true,  tile={x=1,z=-3},  screen={x=41,y=19}, coords={x=68,y=38,w=2,h=13,fullwidth=2} },
+	                { type="side", flipped=false, tile={x=-2,z=-2}, screen={x=0,y=18}, coords={x=72,y=96,w=5,h=16,fullwidth=5} },
+	                { type="side", flipped=true,  tile={x=2,z=-2},  screen={x=64,y=18}, coords={x=72,y=96,w=5,h=16,fullwidth=2} },
+	            }
+	        }
+	    }
+	}
+end
+-->8
+-- dungeon
+function init_dungeon()
+	walllayers=get_layers("walls")
+ floorlayers=get_layers("floor")
+ ceilinglayers=get_layers("ceiling")
+ images=generate_images()
+end
+
+function draw_dungeon()
+	draw_dungeon_floor()
+	draw_dungeon_ceiling()
+	
+	for z=-atlas.depth,0 do
+		draw_dungeon_sides(z)
+		draw_dungeon_fronts(z)
+	end
+end
+
+function get_layers(type)	
+	local result={}
+	for i=1,#atlas.layers do
+		local layer=atlas.layers[i]
+		if layer.type == type then
+			layer.index = i
+			add(result,layer)
+		end
+	end
+	return result
+end
+
+function generate_images()
+	local images={}
+	for layerindex=1,#atlas.layers do
+		local layer=atlas.layers[layerindex]
+		local layer_images={}
+		add(images,layer_images)
+		for i=1,#layer.tiles do
+			local entry=layer.tiles[i]
+			add(layer_images,entry)
+		end
+	end
+	return images
+end
+
+function draw_dungeon_floor()
+	draw_all_tiles_of_layers(floorlayers)
+end
+
+function draw_dungeon_ceiling()
+	draw_all_tiles_of_layers(ceilinglayers)
+end
+
+function draw_all_tiles_of_layers(layers)
+	if #layers > 0 then
+		for i=1,#layers do
+			local layer=layers[i]
+			for j=1,#layer.tiles do
+				local image=layer.tiles[j]
+	   draw_image(image)
+			end
+		end
+	end
+end
+
+function draw_dungeon_sides(z)
+	for x=-(atlas.width-1),atlas.width-1 do
+		local coord=coord_cell(player.dir,player,x,z)
+		local px=coord.px
+		local py=coord.py
+		local map_size_x=#mapdata[1]
+		local map_size_y=#mapdata
+		
+  if px >= 1 and py >= 1 and px <= map_size_x and py <= map_size_y then
+			if mapdata[py][px] == 1 then
+				local layers=walllayers
+				for i=1,#layers do
+					local layer=layers[i]
+					local image=get_image(layer.index,"side",x, z)
+					if image then
+						draw_image(image)
+					end
+				end
+			end
+  end
+	end
+end
+
+
+function draw_dungeon_fronts(z)
+	for x=-(atlas.width-1),atlas.width-1 do
+		local coord=coord_cell(player.dir,player,x,z)
+		local px=coord.px
+		local py=coord.py
+		local map_size_x=#mapdata[1]
+		local map_size_y=#mapdata
+		
+  if px >= 1 and py >= 1 and px <= map_size_x and py <= map_size_y then
+			if mapdata[py][px] == 1 then
+				local layers=walllayers
+				for i=1,#layers do
+					local layer=layers[i]
+					if layer.type == "walls" then
+						local image=get_image(layer.index,"front",0, z)
+						if image then
+							local dx=image.screen.x + (x * image.coords.fullwidth)
+	      local dy=image.screen.y
+							draw_image(image,dx,dy)
+						end
+					end
+				end
+			end
+  end
+	end
+end
+
+
+function coord_cell(player_dir,player,x,z)
+	local px
+	local py
+	if player_dir==1 then
+ 	px=player.x+x
+ 	py=player.y+z
+	elseif player_dir==2 then
+  px=player.x-z
+  py=player.y+x
+	elseif player_dir==3 then
+  px=player.x-x
+  py=player.y-z
+	elseif player_dir==4 then
+  px=player.x+z
+  py=player.y-x
+	end
+	return {px=px,py=py}
+end
+
+function get_image(layerindex, type, x, z)
+ for i=1,#images[layerindex] do
+		local entry = images[layerindex][i]
+  if entry.type == type and entry.tile.x == x and entry.tile.z == z then
+  	return entry
+  end
+ end
+ return nil
+end
+
+function draw_image(image,dx,dy)
+ if not image then
+ 	return
+ end
+ 
+ if not dx then
+		local screen_x
+		if image.flipped then
+			screen_x=image.screen.x-image.coords.w
+		else
+			screen_x=image.screen.x
+		end
+ 	dx=screen_x
+ end
+ 
+ if not dy then
+ 	dy=image.screen.y
+ end
+	
+	sspr(
+		image.coords.x,
+		image.coords.y,
+		image.coords.w,
+		image.coords.h,
+		dx,
+		dy, 
+		image.coords.w,
+		image.coords.h,
+		image.flipped,
+		false)
+end
+
+
+-->8
+-- utils
+function print_center(t,y)
+	x = (64-#t*4)/2
+	if x < 0 then
+		x = 0
+	end
+	rectfill(x-1, y-1, x+#t*4+3, y+5,6)
+	print(t, x, y, 0)
+end
+
+pulse={}
+function pulse:new(incr)
+  local res = {}
+  res.incr=incr
+  res.val=0
+		return setmetatable(res, {__index = self} )
+end
+
+function pulse:update()
+	self.val+=self.incr
+end
+
+function pulse:bool()
+  return flr(self.val)%2==1
+end
+__gfx__
+dd1000005d11dd00000000ddd55155dd100555dd65555d5511d551115555555611005dd11d000000001000000000000000000000000000000000000000000000
+ddd0dd00055dd00000000d66dd11155555555515555ddd66551dd6655155ddd66551110055d00000001100000006010000000000000000000000000000000000
+5551d500111100000000555551155dddddddd1100ddddddd555515511005dddd555dddd111110000006d10000006d61100000000000000000000000000000000
+01110500ddd00000000ddddd1100dddd55555dd110055555dddd6dddd55111151111555555ddd000006ddd10000dd6dd10000000000000000000000000000000
+55dd5d005500000000dddd6dd11115555dddd666dd111111ddddddddddddd5555dd551155111550000d5ddd51005dd55dd100000000000000000000000000000
+555d5500000000000dddddd666610055dddddddddd66dd0055dd555555555555dd665116666110000055d555000d5dd5d5660000000000000000000000000000
+5550110000000000dddddddd5555550011dddddddddd6655005555551111dddddd66dd0011dd115500555555100d555dd5dd6d10000000000000000000000000
+6d51dd0000000000ddd555555dd66dd0000055555555dddd1155dd665500ddddddddd66665511005005555550005555d5d655500000000000000000000000000
+5551d50016000000550055ddddddddd55111155555dddd6655005555555110055ddddddddd6655000055555500055d55556dd500000000000000000000000000
+5d50160000000000500555dddddddd55511115555ddddd66550055555551100555dddddddd666550005555551005555555d55510000000000000000000000000
+15d55d0000000000555111111ddd11555511111dddd6665555111dddd66666dd1100555551111ddd005555550001011155555510000000000000000000000000
+55555500666600006666ddddd1155555dd550005555555dd551111155ddddd66666dd1155555005500555555100d6d5d10100000000000000000000000000000
+d555000000000000666ddddd1115555ddd550055555555dd5511111555dddd66666dd1115555500500555555000d555666dd5dd0000000000000000000000000
+5000000000000000ddddd6665511ddd66666dd55511000dd66666dd1110055555555dd1155566666001000150005555ddddd5d50000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000006d001010055556dd555550000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000006d6dddd0055d5d55555d50000000000000000000000000
+5555dd515000000000000000000dd515d055d65d51d515555105d1d0000000000000d7d75556d00000ddddd5500d555d5d555550000000000000000000000000
+d5d0dd00000000000000000000dd6d1155dd6d111dddddd55d51511500000000000000000000000000dd5d55d005555555550000000000000000000000000000
+00000000000000000000000005505dddd51155dd650555105dddd65000000000000000000000000000dd5d55d0055550000dd510000000000000000000000000
+000000000000000000000000dddddd61055dd661ddd6d155dd10dd55dd000000000000000000000000d5555d500010006d1dd500000000000000000000000000
+60000000000000000000000666105dddddddd6d1dd6d1555105dddd55dd000000000000000000000005dddd550006dd6550dd500000000000000000000000000
+76000000000000000000000d55dd011dd551dd6dd01666dd550116ddddd000000000000000000000005ddd55500d6dd5d50d5500000000000000000000000000
+766d00000000000000000015d1115501dd66ddd1056ddd115551d11115d50000000000000000000000d55555500dddd5551d5510000000000000000000000000
+6dddd60000000000000005015566ddddd0056d5501dd5555500d66d5555dd000000000000000000000d55555500dd55d55150650000000000000000000000000
+00000000000000000000016661556d55555555dd51dd6ddd1ddd501166dddd00000000000000000000555101100d55d555005d50000000000000000000000000
+0000000000000000000dd5555511551115ddd6dddd555001d55555dd001dddd0000000000000000000100105000d55d551665550000000000000000000000000
+0000000000000000001111ddd555ddd500155155ddddddd011ddddddd55155550000000000000000001dddd5100d5555165d5550000000000000000000000000
+00000000000000000111155011655555511155dddddd55566d555001dd5115ddd000000000000000006dd55500055500d5d55d00000000000000000000000000
+0000000000000000dddddd550115ddddddd511155555111dd6dddd5005dd55d111000000000000000055d55500051056d55d5000000000000000000000000000
+000000000000000000000000000000000000000000000000000000000000000000000000000000000055d55500001d56d5550000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000000000000000000000d55555000ddd5655500000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000000000000000000000d55555100d5d5d55500000000000000000000000000000
+000dd610ddd6055555656100000005555511551dd5515000000dd615dddd0d55556161000000000000ddd555000d555655000000000000000000000000000000
+00515dddddd15d10555dd6150000d55151d6dd5155d0dd00515dddddd55d1d555dd5100000000000005d55550005555d50000000000000000000000000000000
+0005ddd5055515d5515ddd05500000000000000000000000ddd515501dd5115dd505000000000000005555501005d55500000000000000000000000000000000
+111d55d50155dddd01dddd15550000000000000000000000d50115dddd01ddd5155000000000000000555510d005555000000000000000000000000000000000
+000000000000000000000000000000000000000000000000000000000000000000000000000000000055016d5005550000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000001006655005500000000000000000000000000000000000
+d55d51d115556105d100000555515d551dd51500d665d6666dd76dd57666676d6600d00000000000001665d55005000000000000000000000000000000000000
+111dddddd55d51511000d55115d6d50d55d1d0000076675666d55d66666667d60000dd00000000000066d5d5d000000000000000000000000000000000000000
+650555105dddd6500000000000000000000000000000557d667676d76666d60000005d0000000000006ddd555000000000000000000000000000000000000000
+d6d155dd10dd55d0000000000000000000000000000000000000000000000000000010000000000000d5d55d5000000000000000000000000000000000000000
+1555105dddd55d000000d66756d6d75557660000000000000000000000000000000055000000000000d5d5555000000000000000000000000000000000000000
+dd550116dddddd0000000000000000000000000066d676dd5766d676d6600000000055000000000000dddd555000000000000000000000000000000000000000
+5551d11115d550000000000000000000000000006d76676575d66d6665766000000051000000000000d5d5550000000000000000000000000000000000000000
+0dd6d5555ddd00000000776666770000000000000000557d7776d6d56666d6600000dd000000000000d555500000000000000000000000000000000000000000
+5001666dddd000000000666d6676dd000000000000000000000000000000000000005d000000000000dd55000000000000000000000000000000000000000000
+ddd01ddddd00000000006ddd67766d55000000000000000000000000000000000000d10000000000005550000000000000000000000000000000000000000000
+d5515555500000000000d6666666576760000000d66756d7d7555760000000000000550000000000005500000000000000000000000000000000000000000000
+55155ddd0000000000006655667556dd676000000000000000000000000000000000550000000000005000000000000000000000000000000000000000000000
+55dd1110000000000000767665767d66666d60000000000000000000000000000000500000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000006100000000000000000000000000000000000000000000
+ddd77766555556666666666677766666ddd66555555ddddd6666666655555777000000000000000000ddd1000000000000000000000000000000000000000000
+dddd6666666655666dd77777ddd66666ddd6666655555666667755555666dddd0000000000000000005ddd000000000000000000000000000000000000000000
+6666666677666555556677ddddd6667777ddd667775555555555555555577666000000000000000000d555000000000000000000000000000000000000000000
+dd666666666666666655555556666677dd6667766777776677666dd6666655770000000000000000005555000000000000000000000000000000000000000000
+6666666666dd66666dd55775555555555566777666666dd77666dd66dddd5557000000000000000000d610000000000000000000000000000000000000000000
+d666666dddd66dddd5557766777766665555776666776666677dd6666dd665550000000000000000005d5d000000000000000000000000000000000000000000
+05577dd666775555776666dd6666776677666655776677dd66667766666dd660000000000000000000dddd000000000000000000000000000000000000000000
+0055dddddd5577ddd666677666dd6666776666577666666666666666777766000000000000000000005555000000000000000000000000000000000000000000
+0000dd777776666666666667766666dd5555577dd66666dd666dd77766dd0000000000000000000000500d000000000000000000000000000000000000000000
+000000dd666776666dddd666dd66657766666666dd67766d66666ddd66000000000000000000000000d5dd000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000000000000000000000dddd000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000005555000000000000000000000000000000000000000000
+d77666d55d77666ddd66666666ddd5776dd666666766666700000000000000000000000000000000005516000000000000000000000000000000000000000000
+00ddd66666666d55577766666557ddd66677666dd6766d0000000000000000000000000000000000000d5d000000000000000000000000000000000000000000
+0000d76666d66666666666657777557766ddd67666d500000000000000000000000000000000000000ddd5000000000000000000000000000000000000000000
+00000dd7666d775d565557d556666d6666666576766000000000000000000000000000000000000000d550000000000000000000000000000000000000000000
+00000005d6ddd66656d77d66d6655667556ddd676000000000000000000000000000000000000000005500000000000000000000000000000000000000000000
+00000000057d6675566d66767665767667666d600000000000000000000000000000000000000000005000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00001111111011111001110001101111111000111111001001000011101110100101110011101000000000000000000000000000000000000000000000000000
+666d66666ddddddddddddd511666dd666dd6ddd66dddddd550006d666dddddd5166d6d6dddddd500000000000000000000000000000000000000000000000000
+ddddddd5555555ddd55555500ddddddddddd555dd55d555551005ddddd55d55516ddd55d55555500000000000000000000000000000000000000000000000000
+655ddddddddd555dd5555551166ddd5dd555dd55555555555000d5d5d5d55dd516dd5dd555555500000000000000000000000000000000000000000000000000
+655ddddddddd555dd5555551166ddd5dd555dd5555555555500055dddd5555551d5d555555555500000000000000000000000000000000000000000000000000
+6dd5dd5dd555dd555ddddd51166dddd55ddd55555555555551005555555555550555555555555500000000000000000000000000000000000000000000000000
+ddd5dd55555ddd5555555551166d555dddd55555555555555000d6ddd0d66d66dd6ddd516d6ddd00000000000000000000000000000000000000000000000000
+d555ddddd55d5555555555511dd5dd5555555555555555555100d555516ddd5ddd555550ddddd500000000000000000000000000000000000000000000000000
+555555555555555555555550055555555555555555555555500055dd516dddd555dd5551d5555d00000000000000000000000000000000000000000000000000
+5555555555555555555555500555555555555555555555555000555550d555dd55555551d5555500000000000000000000000000000000000000000000000000
+01101110011011011110000111111100011011011000001001005555505555555555555055555500000000000000000000000000000000000000000000000000
+6dd6ddddd550dd666dd6666dddd6ddddddd511666d66dddddd00d66d6d666dd516dd6dd66dddd500000000000000000000000000000000000000000000000000
+ddd55555555166ddddd555ddddd555d5555500ddddddddd55500dddd5555555516ddd5d555d55500000000000000000000000000000000000000000000000000
+5555dd555551ddddddd5dd555ddd55d55555006ddd55dd555d00d5d5d5dd5555065d5dd5d5555500000000000000000000000000000000000000000000000000
+5555dd555551ddddddd5dd555ddd55d55555006ddd55dd555d0065555d5d55551dddd5555dd55000000000000000000000000000000000000000000000000000
+d555dddd555166dddddddd55555ddd55555511ddd555555dd5005555555555550555555555555000000000000000000000000000000000000000000000000000
+5dd555555550ddd55555555dd5555555555500655dddddd555001100000110001010100110011100000000000000000000000000000000000000000000000000
+555555555550dd55555dddd555555555555511ddd55555555500d55d556ddd5d55d55551ddd5d500000000000000000000000000000000000000000000000000
+5555555555505555555555555555555555550055555555555500d55d5565d5d5d5dd5550d5ddd500000000000000000000000000000000000000000000000000
+55555555555055555555555555555555555500555555555555005d55556d5d5d555d5550d5dd5500000000000000000000000000000000000000000000000000
+0001110010010010011000100111001110001111100011011100555555d5555555d555505d555500000000000000000000000000000000000000000000000000
+6dd666dd6ddd66666ddddd51166dddd66ddd66666dddddd550000000000000000000000000000000000000000000000000000000000000000000000000000000
+dddddddd5dd5555555555551166dddddd55d555555dd555551000000000000000000000000000000000000000000000000000000000000000000000000000000
+6ddddddddddd555ddddd5550066dddd5555d55ddd5dd555550006d6ddddd16d66d6dd000d1110000000000000000000000000000000000000000000000000000
+6ddddddddddd555ddddd5550066dddd5555d55ddd5dd555550006555d5dd16d5d5555100dd5d5000000000000000000000000000000000000000000000000000
+6dd5dd55d555ddd5555555500665ddd55ddd55ddd55555555000d5d555551dd5555551005d555000000000000000000000000000000000000000000000000000
+6dd555555dd555d5555555511dddddddd55555555ddd555550000011101011100110110055555000000000000000000000000000000000000000000000000000
+d55555555dd555555dd555511dd555d55555dd55555555555100d5556dd5dd5550ddd50011100000000000000000000000000000000000000000000000000000
+55555555555555555555555005555555555555555555555550005555dd55d555505dd500550d5000000000000000000000000000000000000000000000000000
+555555555555555555555550055555555555555555555555500055555555555550555500d51d5000000000000000000000000000000000000000000000000000
+100100000001001110001101100111011000110110001110010066dd66dd16d6d66dd00055055000000000000000000000000000000000000000000000000000
+6ddd66ddd55166ddd66666666666dd6dddd500666666666ddd006ddd55d506d5d5dd5000016d5000000000000000000000000000000000000000000000000000
+ddd555dd555066ddddd555d5555d55555555116ddddd55d55500d55d55d51d555d555100dd5d5000000000000000000000000000000000000000000000000000
+d55555dd5551665dd55d555dd55dddd55555006dd5ddddd5550011000101101101101100d55d5000000000000000000000000000000000000000000000000000
+d55555dd5551665dd55d555dd55dddd55555006dd5ddddd55500d5d56dd5555551ddd50055550000000000000000000000000000000000000000000000000000
+555555555550ddd55ddd55d55ddddd55555511dddddd55555d005555ddd55dd551dd5d0011065000000000000000000000000000000000000000000000000000
+555d5555555166d55dd555d5555555d5555500ddd5dddd5dd50055555555555550555500550d5000000000000000000000000000000000000000000000000000
+555555555550dd5555555555555d5555555500d55d555555550000000000000000000000d5055000000000000000000000000000000000000000000000000000
+55555555555055555555555555555555555500555555555555000000000000000000000055000000000000000000000000000000000000000000000000000000
+55555555555055555555555555555555555500555555555555000000000000000000000000000000000000000000000000000000000000000000000000000000

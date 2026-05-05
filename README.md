@@ -1,6 +1,6 @@
 # dungeon-crawler-prof-of-concepts
 
 proof of concepts of dungeon crawlers
-* /01-pico-8-poc-ui : proof of concept in PICO-8 of the UI for a dungeon crawler
-* /02-pico-8-maze-lines : proof of concept in PICO-8 of a dungeon crawler drawn with lines
-* /03-pico-8-maze-sprites : proof of concept in PICO-8 of a dungeon crawler drawn with pre-renderered sprites
+* /01-pico-8-poc-ui : UI for a dungeon crawler for PICO-8
+* /02-pico-8-maze-lines : dungeon crawler drawn with lines for PICO-8
+* /03-pico-8-maze-sprites : dungeon crawler drawn with pre-renderered sprites for PICO-8
